@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dreamweaver to WordPress Theme Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .upload-mode-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .file-list.show {
+            display: block;
+        }
+
+        .file-list-header {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .file-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item-name {
+            color: #333;
+        }
+
+        .file-item-size {
+            color: #999;
+        }
+
+        .file-item-type {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            margin-left: 8px;
+        }
+
+        .file-item-type.dwt { background: #e3f2fd; color: #1976d2; }
+        .file-item-type.css { background: #f3e5f5; color: #7b1fa2; }
+        .file-item-type.js { background: #fff3e0; color: #f57c00; }
+        .file-item-type.img { background: #e8f5e9; color: #388e3c; }
+        .file-item-type.other { background: #fafafa; color: #757575; }
+
+        .settings {
+            margin-top: 25px;
+        }
+
+        .settings h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            margin-top: 15px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.show {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .preview {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .preview.show {
+            display: block;
+        }
+
+        .preview h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .preview-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .preview-tab {
+            padding: 8px 16px;
+            background: #eee;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .preview-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .preview-content {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8em;
+            max-height: 300px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            color: #856404;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .asset-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .asset-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .asset-card-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .asset-card-count {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .asset-card-label {
+            font-size: 0.85em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DW to WP Converter</h1>
+        <p class="subtitle">Dreamweaver Template to WordPress Theme</p>
+
+        <div class="card">
+            <div class="upload-mode-toggle">
+                <button class="mode-btn active" id="folderModeBtn">フォルダをアップロード</button>
+                <button class="mode-btn" id="fileModeBtn">単一ファイル</button>
+            </div>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon" id="uploadIcon">📂</div>
+                <p class="upload-text" id="uploadText">Webサイトのフォルダをドラッグ&ドロップ</p>
+                <p class="upload-hint" id="uploadHint">または クリックしてフォルダを選択（CSS, JS, 画像も自動で含まれます）</p>
+                <input type="file" id="folderInput" webkitdirectory multiple>
+                <input type="file" id="fileInput" accept=".dwt,.html,.htm">
+            </div>
+
+            <div class="file-list" id="fileList">
+                <div class="file-list-header">
+                    <span id="fileListTitle">読み込んだファイル</span>
+                    <span id="fileCount">0 files</span>
+                </div>
+                <div id="fileListContent"></div>
+            </div>
+
+            <div class="asset-summary" id="assetSummary" style="display: none;">
+                <div class="asset-card">
+                    <div class="asset-card-icon">📄</div>
+                    <div class="asset-card-count" id="templateCount">0</div>
+                    <div class="asset-card-label">テンプレート</div>
+                </div>
+                <div class="asset-card">
+                    <div class="asset-card-icon">🎨</div>
+                    <div class="asset-card-count" id="cssCount">0</div>
+                    <div class="asset-card-label">CSS</div>
+                </div>
+                <div class="asset-card">
+                    <div class="asset-card-icon">⚡</div>
+                    <div class="asset-card-count" id="jsCount">0</div>
+                    <div class="asset-card-label">JavaScript</div>
+                </div>
+                <div class="asset-card">
+                    <div class="asset-card-icon">🖼️</div>
+                    <div class="asset-card-count" id="imgCount">0</div>
+                    <div class="asset-card-label">画像</div>
+                </div>
+            </div>
+
+            <div class="settings">
+                <h3>テーマ設定</h3>
+                <div class="form-group">
+                    <label for="themeName">テーマ名</label>
+                    <input type="text" id="themeName" value="My Theme" placeholder="例: My Awesome Theme">
+                </div>
+                <div class="form-group">
+                    <label for="themeAuthor">作成者</label>
+                    <input type="text" id="themeAuthor" value="Author" placeholder="例: Your Name">
+                </div>
+                <div class="form-group">
+                    <label for="themeDescription">説明</label>
+                    <input type="text" id="themeDescription" value="Converted from Dreamweaver template" placeholder="テーマの説明">
+                </div>
+            </div>
+
+            <button class="btn" id="convertBtn" disabled>変換してダウンロード</button>
+
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="status" id="status"></div>
+
+            <div class="preview" id="preview">
+                <h3>プレビュー</h3>
+                <div class="preview-tabs" id="previewTabs"></div>
+                <pre class="preview-content" id="previewContent"></pre>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>使い方</h3>
+            <ol>
+                <li><strong>フォルダモード（推奨）:</strong> Webサイトのフォルダ全体をアップロード。CSS、JS、画像を自動検出</li>
+                <li><strong>単一ファイルモード:</strong> DWTファイルのみをアップロード</li>
+                <li>テーマ名などの設定を入力</li>
+                <li>「変換してダウンロード」をクリック</li>
+                <li>生成されたZIPをWordPressのテーマフォルダに展開</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let uploadMode = 'folder'; // 'folder' or 'file'
+        let uploadedFiles = new Map(); // path -> { file, content, type }
+        let templateContent = '';
+        let generatedFiles = {};
+
+        // DOM Elements
+        const folderModeBtn = document.getElementById('folderModeBtn');
+        const fileModeBtn = document.getElementById('fileModeBtn');
+        const uploadArea = document.getElementById('uploadArea');
+        const uploadIcon = document.getElementById('uploadIcon');
+        const uploadText = document.getElementById('uploadText');
+        const uploadHint = document.getElementById('uploadHint');
+        const folderInput = document.getElementById('folderInput');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const fileListContent = document.getElementById('fileListContent');
+        const fileCount = document.getElementById('fileCount');
+        const assetSummary = document.getElementById('assetSummary');
+        const convertBtn = document.getElementById('convertBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const status = document.getElementById('status');
+        const preview = document.getElementById('preview');
+        const previewTabs = document.getElementById('previewTabs');
+        const previewContent = document.getElementById('previewContent');
+
+        // Mode Toggle
+        folderModeBtn.addEventListener('click', () => {
+            uploadMode = 'folder';
+            folderModeBtn.classList.add('active');
+            fileModeBtn.classList.remove('active');
+            uploadIcon.textContent = '📂';
+            uploadText.textContent = 'Webサイトのフォルダをドラッグ&ドロップ';
+            uploadHint.textContent = 'または クリックしてフォルダを選択（CSS, JS, 画像も自動で含まれます）';
+            resetUpload();
+        });
+
+        fileModeBtn.addEventListener('click', () => {
+            uploadMode = 'file';
+            fileModeBtn.classList.add('active');
+            folderModeBtn.classList.remove('active');
+            uploadIcon.textContent = '📄';
+            uploadText.textContent = 'DWTファイルをドラッグ&ドロップ';
+            uploadHint.textContent = 'または クリックしてファイルを選択';
+            resetUpload();
+        });
+
+        function resetUpload() {
+            uploadedFiles.clear();
+            templateContent = '';
+            fileList.classList.remove('show');
+            assetSummary.style.display = 'none';
+            convertBtn.disabled = true;
+            preview.classList.remove('show');
+            status.classList.remove('show');
+        }
+
+        // Upload Area Events
+        uploadArea.addEventListener('click', () => {
+            if (uploadMode === 'folder') {
+                folderInput.click();
+            } else {
+                fileInput.click();
+            }
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const items = e.dataTransfer.items;
+            if (items) {
+                const filePromises = [];
+                for (const item of items) {
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry();
+                        if (entry) {
+                            filePromises.push(traverseFileTree(entry, ''));
+                        }
+                    }
+                }
+                await Promise.all(filePromises);
+                processUploadedFiles();
+            }
+        });
+
+        // File Input Events
+        folderInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                const path = file.webkitRelativePath || file.name;
+                await readAndStoreFile(file, path);
+            }
+            processUploadedFiles();
+        });
+
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                await readAndStoreFile(file, file.name);
+                processUploadedFiles();
+            }
+        });
+
+        // Traverse directory tree
+        async function traverseFileTree(entry, path) {
+            if (entry.isFile) {
+                return new Promise((resolve) => {
+                    entry.file(async (file) => {
+                        const fullPath = path ? `${path}/${entry.name}` : entry.name;
+                        await readAndStoreFile(file, fullPath);
+                        resolve();
+                    });
+                });
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                return new Promise((resolve) => {
+                    const readEntries = () => {
+                        dirReader.readEntries(async (entries) => {
+                            if (entries.length === 0) {
+                                resolve();
+                            } else {
+                                const newPath = path ? `${path}/${entry.name}` : entry.name;
+                                await Promise.all(entries.map(e => traverseFileTree(e, newPath)));
+                                readEntries(); // Continue reading if there are more entries
+                            }
+                        });
+                    };
+                    readEntries();
+                });
+            }
+        }
+
+        // Read and store file
+        async function readAndStoreFile(file, path) {
+            const type = getFileType(file.name);
+
+            // Skip hidden files and certain directories
+            if (path.includes('/.') || path.startsWith('.') ||
+                path.includes('node_modules') || path.includes('.git')) {
+                return;
+            }
+
+            const fileData = { file, type, path };
+
+            // Read content for text files
+            if (['template', 'css', 'js', 'html'].includes(type)) {
+                fileData.content = await readFileAsText(file);
+            } else if (type === 'image' || type === 'font') {
+                fileData.content = await readFileAsArrayBuffer(file);
+            }
+
+            uploadedFiles.set(path, fileData);
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => resolve('');
+                reader.readAsText(file);
+            });
+        }
+
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => resolve(null);
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function getFileType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (ext === 'dwt') return 'template';
+            if (['css', 'scss', 'less'].includes(ext)) return 'css';
+            if (['js', 'mjs'].includes(ext)) return 'js';
+            if (['html', 'htm'].includes(ext)) return 'html';
+            if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico'].includes(ext)) return 'image';
+            if (['woff', 'woff2', 'ttf', 'eot', 'otf'].includes(ext)) return 'font';
+            return 'other';
+        }
+
+        function getFileTypeClass(type) {
+            const classes = {
+                'template': 'dwt',
+                'css': 'css',
+                'js': 'js',
+                'image': 'img',
+                'font': 'other',
+                'html': 'dwt',
+                'other': 'other'
+            };
+            return classes[type] || 'other';
+        }
+
+        // Process uploaded files
+        function processUploadedFiles() {
+            if (uploadedFiles.size === 0) return;
+
+            // Find template file
+            let templateFile = null;
+            for (const [path, data] of uploadedFiles) {
+                if (data.type === 'template') {
+                    templateFile = data;
+                    templateContent = data.content;
+                    break;
+                }
+            }
+
+            // If no .dwt, look for index.html
+            if (!templateFile) {
+                for (const [path, data] of uploadedFiles) {
+                    if (data.type === 'html' && (path.endsWith('index.html') || path.endsWith('index.htm'))) {
+                        templateFile = data;
+                        templateContent = data.content;
+                        break;
+                    }
+                }
+            }
+
+            // Count file types
+            const counts = { template: 0, css: 0, js: 0, image: 0, font: 0, other: 0 };
+            for (const [path, data] of uploadedFiles) {
+                counts[data.type] = (counts[data.type] || 0) + 1;
+            }
+
+            // Update UI
+            displayFileList();
+
+            document.getElementById('templateCount').textContent = counts.template || counts.html || 0;
+            document.getElementById('cssCount').textContent = counts.css;
+            document.getElementById('jsCount').textContent = counts.js;
+            document.getElementById('imgCount').textContent = counts.image;
+
+            assetSummary.style.display = 'grid';
+            fileList.classList.add('show');
+
+            convertBtn.disabled = !templateContent;
+
+            if (!templateContent) {
+                showStatus('テンプレートファイル(.dwt)またはindex.htmlが見つかりません', 'error');
+            }
+        }
+
+        function displayFileList() {
+            const sortedFiles = Array.from(uploadedFiles.entries()).sort((a, b) => {
+                const typeOrder = { template: 0, html: 1, css: 2, js: 3, image: 4, font: 5, other: 6 };
+                return (typeOrder[a[1].type] || 6) - (typeOrder[b[1].type] || 6);
+            });
+
+            fileListContent.innerHTML = sortedFiles.map(([path, data]) => `
+                <div class="file-item">
+                    <span class="file-item-name">
+                        ${path}
+                        <span class="file-item-type ${getFileTypeClass(data.type)}">${data.type}</span>
+                    </span>
+                    <span class="file-item-size">${formatFileSize(data.file.size)}</span>
+                </div>
+            `).join('');
+
+            fileCount.textContent = `${uploadedFiles.size} files`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status show ' + type;
+        }
+
+        // Convert Button
+        convertBtn.addEventListener('click', async () => {
+            if (!templateContent) {
+                showStatus('テンプレートファイルを先にアップロードしてください', 'error');
+                return;
+            }
+
+            try {
+                convertBtn.disabled = true;
+                progressBar.classList.add('show');
+                updateProgress(10);
+
+                showStatus('変換中...', 'success');
+
+                // Generate WordPress theme files
+                updateProgress(30);
+                generatedFiles = convertToWordPress(templateContent);
+
+                updateProgress(60);
+
+                // Show preview
+                showPreview();
+
+                updateProgress(80);
+
+                // Generate ZIP with all assets
+                await generateZip();
+
+                updateProgress(100);
+                showStatus('変換完了！ZIPファイルがダウンロードされました。', 'success');
+            } catch (error) {
+                showStatus('エラー: ' + error.message, 'error');
+                console.error(error);
+            } finally {
+                convertBtn.disabled = false;
+                setTimeout(() => {
+                    progressBar.classList.remove('show');
+                    updateProgress(0);
+                }, 1000);
+            }
+        });
+
+        function updateProgress(percent) {
+            progressFill.style.width = percent + '%';
+        }
+
+        // WordPress Converter
+        function convertToWordPress(content) {
+            const themeName = document.getElementById('themeName').value || 'My Theme';
+            const themeAuthor = document.getElementById('themeAuthor').value || 'Author';
+            const themeDescription = document.getElementById('themeDescription').value || 'Converted theme';
+            const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+            // Extract head and body content
+            const headMatch = content.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+            const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            const bodyTagMatch = content.match(/<body([^>]*)>/i);
+
+            const headContent = headMatch ? headMatch[1] : '';
+            const bodyContent = bodyMatch ? bodyMatch[1] : '';
+            const bodyAttributes = bodyTagMatch ? bodyTagMatch[1] : '';
+
+            // Find the main editable region
+            let beforeContent = bodyContent;
+            let afterContent = '';
+
+            const mainEditableMatch = bodyContent.match(/([\s\S]*?)<!--\s*TemplateBeginEditable\s+name="(main|content|body|maincontent)"[\s\S]*?-->([\s\S]*?)<!--\s*TemplateEndEditable\s*-->([\s\S]*)/i);
+
+            if (mainEditableMatch) {
+                beforeContent = mainEditableMatch[1];
+                afterContent = mainEditableMatch[4];
+            } else {
+                const firstEditableMatch = bodyContent.match(/([\s\S]*?)<!--\s*TemplateBeginEditable[\s\S]*?-->([\s\S]*?)<!--\s*TemplateEndEditable\s*-->([\s\S]*)/i);
+                if (firstEditableMatch) {
+                    beforeContent = firstEditableMatch[1];
+                    afterContent = firstEditableMatch[3];
+                }
+            }
+
+            // Clean up template comments
+            beforeContent = cleanTemplateComments(beforeContent);
+            afterContent = cleanTemplateComments(afterContent);
+
+            // Fix asset paths for WordPress
+            beforeContent = fixAssetPaths(beforeContent, themeSlug);
+            afterContent = fixAssetPaths(afterContent, themeSlug);
+            const fixedHeadContent = fixAssetPaths(cleanHeadContent(headContent), themeSlug);
+
+            // Collect CSS from external files and inline styles
+            let allCss = extractStyles(content);
+            for (const [path, data] of uploadedFiles) {
+                if (data.type === 'css' && data.content) {
+                    allCss += `\n/* From: ${path} */\n${data.content}\n`;
+                }
+            }
+
+            // Generate style.css
+            const styleCss = `/*
+Theme Name: ${themeName}
+Theme URI:
+Author: ${themeAuthor}
+Author URI:
+Description: ${themeDescription}
+Version: 1.0.0
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: ${themeSlug}
+*/
+
+${allCss}
+`;
+
+            // Build enqueue scripts for functions.php
+            const jsFiles = [];
+            const cssFiles = [];
+            for (const [path, data] of uploadedFiles) {
+                if (data.type === 'js') {
+                    jsFiles.push(path);
+                } else if (data.type === 'css') {
+                    cssFiles.push(path);
+                }
+            }
+
+            // Generate header.php
+            const headerPhp = `<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo('charset'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php wp_head(); ?>
+${fixedHeadContent}
+</head>
+<body <?php body_class(); ?>${bodyAttributes}>
+<?php wp_body_open(); ?>
+${beforeContent}
+`;
+
+            // Generate footer.php
+            const footerPhp = `${afterContent}
+<?php wp_footer(); ?>
+</body>
+</html>
+`;
+
+            // Generate index.php
+            const indexPhp = `<?php
+/**
+ * The main template file
+ */
+
+get_header(); ?>
+
+<main id="main-content" class="site-main">
+    <?php
+    if (have_posts()) :
+        while (have_posts()) :
+            the_post();
+    ?>
+        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+            <header class="entry-header">
+                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
+            </header>
+            <div class="entry-content">
+                <?php the_content(); ?>
+            </div>
+        </article>
+    <?php
+        endwhile;
+        the_posts_navigation();
+    else :
+    ?>
+        <p><?php esc_html_e('No content found.', '${themeSlug}'); ?></p>
+    <?php endif; ?>
+</main>
+
+<?php get_footer(); ?>
+`;
+
+            // Generate functions.php with asset enqueuing
+            const functionsPhp = generateFunctionsPhp(themeName, themeSlug, jsFiles, cssFiles);
+
+            // Generate page.php
+            const pagePhp = `<?php
+/**
+ * The template for displaying pages
+ */
+
+get_header(); ?>
+
+<main id="main-content" class="site-main">
+    <?php
+    while (have_posts()) :
+        the_post();
+    ?>
+        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+            <header class="entry-header">
+                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
+            </header>
+            <div class="entry-content">
+                <?php the_content(); ?>
+            </div>
+        </article>
+    <?php endwhile; ?>
+</main>
+
+<?php get_footer(); ?>
+`;
+
+            // Generate single.php
+            const singlePhp = `<?php
+/**
+ * The template for displaying single posts
+ */
+
+get_header(); ?>
+
+<main id="main-content" class="site-main">
+    <?php
+    while (have_posts()) :
+        the_post();
+    ?>
+        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+            <header class="entry-header">
+                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
+                <div class="entry-meta">
+                    <span class="posted-on"><?php echo get_the_date(); ?></span>
+                    <span class="byline"><?php the_author(); ?></span>
+                </div>
+            </header>
+            <div class="entry-content">
+                <?php the_content(); ?>
+            </div>
+            <footer class="entry-footer">
+                <?php
+                the_category(', ');
+                the_tags('<span class="tags">', ', ', '</span>');
+                ?>
+            </footer>
+        </article>
+    <?php endwhile; ?>
+</main>
+
+<?php get_footer(); ?>
+`;
+
+            return {
+                'style.css': styleCss,
+                'header.php': headerPhp,
+                'footer.php': footerPhp,
+                'index.php': indexPhp,
+                'functions.php': functionsPhp,
+                'page.php': pagePhp,
+                'single.php': singlePhp
+            };
+        }
+
+        function generateFunctionsPhp(themeName, themeSlug, jsFiles, cssFiles) {
+            const funcPrefix = themeSlug.replace(/-/g, '_');
+
+            let enqueueCode = `    wp_enqueue_style('${themeSlug}-style', get_stylesheet_uri(), array(), '1.0.0');\n`;
+
+            cssFiles.forEach((file, index) => {
+                const handle = `${themeSlug}-css-${index}`;
+                const cleanPath = file.replace(/^[^/]+\//, ''); // Remove first directory
+                enqueueCode += `    wp_enqueue_style('${handle}', get_template_directory_uri() . '/assets/${cleanPath}', array(), '1.0.0');\n`;
+            });
+
+            jsFiles.forEach((file, index) => {
+                const handle = `${themeSlug}-js-${index}`;
+                const cleanPath = file.replace(/^[^/]+\//, '');
+                enqueueCode += `    wp_enqueue_script('${handle}', get_template_directory_uri() . '/assets/${cleanPath}', array('jquery'), '1.0.0', true);\n`;
+            });
+
+            return `<?php
+/**
+ * ${themeName} functions and definitions
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+/**
+ * Enqueue scripts and styles
+ */
+function ${funcPrefix}_scripts() {
+${enqueueCode}}
+add_action('wp_enqueue_scripts', '${funcPrefix}_scripts');
+
+/**
+ * Register navigation menus
+ */
+function ${funcPrefix}_menus() {
+    register_nav_menus(array(
+        'primary' => __('Primary Menu', '${themeSlug}'),
+        'footer'  => __('Footer Menu', '${themeSlug}'),
+    ));
+}
+add_action('after_setup_theme', '${funcPrefix}_menus');
+
+/**
+ * Theme setup
+ */
+function ${funcPrefix}_setup() {
+    add_theme_support('title-tag');
+    add_theme_support('post-thumbnails');
+    add_theme_support('html5', array(
+        'search-form',
+        'comment-form',
+        'comment-list',
+        'gallery',
+        'caption',
+    ));
+    add_theme_support('custom-logo');
+}
+add_action('after_setup_theme', '${funcPrefix}_setup');
+
+/**
+ * Register widget areas
+ */
+function ${funcPrefix}_widgets_init() {
+    register_sidebar(array(
+        'name'          => __('Sidebar', '${themeSlug}'),
+        'id'            => 'sidebar-1',
+        'description'   => __('Add widgets here.', '${themeSlug}'),
+        'before_widget' => '<section id="%1$s" class="widget %2$s">',
+        'after_widget'  => '</section>',
+        'before_title'  => '<h2 class="widget-title">',
+        'after_title'   => '</h2>',
+    ));
+}
+add_action('widgets_init', '${funcPrefix}_widgets_init');
+`;
+        }
+
+        function cleanTemplateComments(content) {
+            return content
+                .replace(/<!--\s*TemplateBeginEditable[^>]*-->/gi, '')
+                .replace(/<!--\s*TemplateEndEditable\s*-->/gi, '')
+                .replace(/<!--\s*TemplateBegin[^>]*-->/gi, '')
+                .replace(/<!--\s*TemplateEnd[^>]*-->/gi, '')
+                .replace(/<!--\s*InstanceBegin[^>]*-->/gi, '')
+                .replace(/<!--\s*InstanceEnd[^>]*-->/gi, '')
+                .replace(/<!--\s*#BeginEditable[^>]*-->/gi, '')
+                .replace(/<!--\s*#EndEditable\s*-->/gi, '');
+        }
+
+        function cleanHeadContent(content) {
+            let cleaned = content.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
+            cleaned = cleanTemplateComments(cleaned);
+            cleaned = cleaned.replace(/<meta[^>]*charset[^>]*>/gi, '');
+            return cleaned.trim();
+        }
+
+        function extractStyles(content) {
+            let styles = '';
+            const styleMatches = content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+            for (const match of styleMatches) {
+                styles += match[1] + '\n';
+            }
+            return styles.trim();
+        }
+
+        function fixAssetPaths(content, themeSlug) {
+            // Fix relative paths to use WordPress template directory
+            return content
+                .replace(/src=["'](?!http|\/\/|data:)([^"']+)["']/gi,
+                    'src="<?php echo get_template_directory_uri(); ?>/assets/$1"')
+                .replace(/href=["'](?!http|\/\/|#|data:|mailto:)([^"']+\.css)["']/gi,
+                    'href="<?php echo get_template_directory_uri(); ?>/assets/$1"')
+                .replace(/url\(["']?(?!http|\/\/|data:)([^"')]+)["']?\)/gi,
+                    'url(<?php echo get_template_directory_uri(); ?>/assets/$1)');
+        }
+
+        // Preview Functions
+        function showPreview() {
+            preview.classList.add('show');
+            previewTabs.innerHTML = '';
+
+            const fileNames = Object.keys(generatedFiles);
+            fileNames.forEach((name, index) => {
+                const tab = document.createElement('button');
+                tab.className = 'preview-tab' + (index === 0 ? ' active' : '');
+                tab.textContent = name;
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    previewContent.textContent = generatedFiles[name];
+                });
+                previewTabs.appendChild(tab);
+            });
+
+            previewContent.textContent = generatedFiles[fileNames[0]];
+        }
+
+        // ZIP Generation
+        async function generateZip() {
+            const themeName = document.getElementById('themeName').value || 'My Theme';
+            const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+            const zip = new JSZip();
+            const folder = zip.folder(themeSlug);
+
+            // Add generated PHP files
+            for (const [filename, content] of Object.entries(generatedFiles)) {
+                folder.file(filename, content);
+            }
+
+            // Add assets folder with CSS, JS, images
+            const assetsFolder = folder.folder('assets');
+
+            for (const [path, data] of uploadedFiles) {
+                if (data.type === 'template' || data.type === 'html') continue; // Skip template files
+
+                // Clean up the path (remove first directory if it exists)
+                const cleanPath = path.replace(/^[^/]+\//, '');
+
+                if (data.content) {
+                    if (typeof data.content === 'string') {
+                        assetsFolder.file(cleanPath, data.content);
+                    } else {
+                        // ArrayBuffer for binary files
+                        assetsFolder.file(cleanPath, data.content);
+                    }
+                }
+            }
+
+            // Generate screenshot placeholder
+            const screenshotSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+    <rect fill="#667eea" width="1200" height="900"/>
+    <text x="600" y="450" text-anchor="middle" fill="white" font-family="Arial" font-size="48">${themeName}</text>
+</svg>`;
+            folder.file('screenshot.svg', screenshotSvg);
+
+            const blob = await zip.generateAsync({ type: 'blob' });
+
+            // Download
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = themeSlug + '-theme.zip';
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+    </script>
+</body>
+</html>
