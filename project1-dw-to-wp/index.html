@@ -142,10 +142,13 @@
 
         .file-item-name {
             color: #333;
+            word-break: break-all;
         }
 
         .file-item-size {
             color: #999;
+            white-space: nowrap;
+            margin-left: 10px;
         }
 
         .file-item-type {
@@ -162,6 +165,34 @@
         .file-item-type.img { background: #e8f5e9; color: #388e3c; }
         .file-item-type.other { background: #fafafa; color: #757575; }
 
+        .template-selector {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .template-selector.show {
+            display: block;
+        }
+
+        .template-selector label {
+            display: block;
+            color: #1976d2;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .template-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #1976d2;
+            border-radius: 6px;
+            font-size: 1em;
+            background: white;
+        }
+
         .settings {
             margin-top: 25px;
         }
@@ -172,8 +203,18 @@
             font-size: 1.1em;
         }
 
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
         .form-group {
             margin-bottom: 15px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
         }
 
         .form-group label {
@@ -183,7 +224,7 @@
             font-size: 0.9em;
         }
 
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #eee;
@@ -192,9 +233,47 @@
             transition: border-color 0.3s;
         }
 
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .advanced-toggle {
+            color: #667eea;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .advanced-settings {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .advanced-settings.show {
+            display: block;
         }
 
         .btn {
@@ -312,6 +391,11 @@
             color: #721c24;
         }
 
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
         .instructions {
             background: #fff3cd;
             padding: 20px;
@@ -335,32 +419,51 @@
 
         .asset-summary {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
             gap: 10px;
             margin-top: 15px;
         }
 
         .asset-card {
             background: #f8f9fa;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             text-align: center;
         }
 
         .asset-card-icon {
-            font-size: 24px;
+            font-size: 20px;
             margin-bottom: 5px;
         }
 
         .asset-card-count {
-            font-size: 1.5em;
+            font-size: 1.3em;
             font-weight: bold;
             color: #667eea;
         }
 
         .asset-card-label {
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: #666;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .upload-mode-toggle {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -380,7 +483,11 @@
                 <p class="upload-text" id="uploadText">Webサイトのフォルダをドラッグ&ドロップ</p>
                 <p class="upload-hint" id="uploadHint">または クリックしてフォルダを選択（CSS, JS, 画像も自動で含まれます）</p>
                 <input type="file" id="folderInput" webkitdirectory multiple>
-                <input type="file" id="fileInput" accept=".dwt,.html,.htm">
+                <input type="file" id="fileInput" accept=".dwt,.html,.htm" multiple>
+            </div>
+
+            <div id="browserWarning" class="warning-box" style="display: none;">
+                ⚠️ お使いのブラウザではフォルダアップロードがサポートされていません。単一ファイルモードをご利用ください。
             </div>
 
             <div class="file-list" id="fileList">
@@ -389,6 +496,11 @@
                     <span id="fileCount">0 files</span>
                 </div>
                 <div id="fileListContent"></div>
+            </div>
+
+            <div class="template-selector" id="templateSelector">
+                <label for="templateSelect">メインテンプレートを選択:</label>
+                <select id="templateSelect"></select>
             </div>
 
             <div class="asset-summary" id="assetSummary" style="display: none;">
@@ -416,17 +528,52 @@
 
             <div class="settings">
                 <h3>テーマ設定</h3>
-                <div class="form-group">
-                    <label for="themeName">テーマ名</label>
-                    <input type="text" id="themeName" value="My Theme" placeholder="例: My Awesome Theme">
-                </div>
-                <div class="form-group">
-                    <label for="themeAuthor">作成者</label>
-                    <input type="text" id="themeAuthor" value="Author" placeholder="例: Your Name">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="themeName">テーマ名</label>
+                        <input type="text" id="themeName" value="My Theme" placeholder="例: My Awesome Theme">
+                    </div>
+                    <div class="form-group">
+                        <label for="themeAuthor">作成者</label>
+                        <input type="text" id="themeAuthor" value="Author" placeholder="例: Your Name">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="themeDescription">説明</label>
                     <input type="text" id="themeDescription" value="Converted from Dreamweaver template" placeholder="テーマの説明">
+                </div>
+
+                <span class="advanced-toggle" id="advancedToggle">▶ 詳細設定</span>
+
+                <div class="advanced-settings" id="advancedSettings">
+                    <div class="form-group">
+                        <label for="cssHandling">CSS処理方法</label>
+                        <select id="cssHandling">
+                            <option value="separate">個別ファイルとして保持（推奨）</option>
+                            <option value="merge">style.cssに統合</option>
+                            <option value="both">両方（統合 + 個別）</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="jsHandling">JavaScript処理方法</label>
+                        <select id="jsHandling">
+                            <option value="footer">フッターで読み込み（推奨）</option>
+                            <option value="header">ヘッダーで読み込み</option>
+                            <option value="defer">defer属性付き</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contentRegion">コンテンツ領域の名前（カンマ区切り）</label>
+                        <input type="text" id="contentRegion" value="main,content,body,maincontent,MainContent" placeholder="main,content,body">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="includeComments" checked>
+                        <label for="includeComments">生成ファイルにコメントを含める</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="preserveStructure" checked>
+                        <label for="preserveStructure">元のフォルダ構造を保持</label>
+                    </div>
                 </div>
             </div>
 
@@ -450,287 +597,72 @@
             <ol>
                 <li><strong>フォルダモード（推奨）:</strong> Webサイトのフォルダ全体をアップロード。CSS、JS、画像を自動検出</li>
                 <li><strong>単一ファイルモード:</strong> DWTファイルのみをアップロード</li>
+                <li>複数のテンプレートがある場合は、メインテンプレートを選択</li>
                 <li>テーマ名などの設定を入力</li>
                 <li>「変換してダウンロード」をクリック</li>
-                <li>生成されたZIPをWordPressのテーマフォルダに展開</li>
+                <li>生成されたZIPをWordPressの <code>wp-content/themes/</code> に展開</li>
             </ol>
         </div>
     </div>
 
     <script>
-        // State
-        let uploadMode = 'folder'; // 'folder' or 'file'
-        let uploadedFiles = new Map(); // path -> { file, content, type }
-        let templateContent = '';
-        let generatedFiles = {};
+        // ============================================
+        // State Management
+        // ============================================
+        const state = {
+            uploadMode: 'folder',
+            uploadedFiles: new Map(),
+            templateFiles: [],
+            selectedTemplate: null,
+            basePath: '',
+            generatedFiles: {}
+        };
 
+        // ============================================
         // DOM Elements
-        const folderModeBtn = document.getElementById('folderModeBtn');
-        const fileModeBtn = document.getElementById('fileModeBtn');
-        const uploadArea = document.getElementById('uploadArea');
-        const uploadIcon = document.getElementById('uploadIcon');
-        const uploadText = document.getElementById('uploadText');
-        const uploadHint = document.getElementById('uploadHint');
-        const folderInput = document.getElementById('folderInput');
-        const fileInput = document.getElementById('fileInput');
-        const fileList = document.getElementById('fileList');
-        const fileListContent = document.getElementById('fileListContent');
-        const fileCount = document.getElementById('fileCount');
-        const assetSummary = document.getElementById('assetSummary');
-        const convertBtn = document.getElementById('convertBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressFill = document.getElementById('progressFill');
-        const status = document.getElementById('status');
-        const preview = document.getElementById('preview');
-        const previewTabs = document.getElementById('previewTabs');
-        const previewContent = document.getElementById('previewContent');
+        // ============================================
+        const elements = {
+            folderModeBtn: document.getElementById('folderModeBtn'),
+            fileModeBtn: document.getElementById('fileModeBtn'),
+            uploadArea: document.getElementById('uploadArea'),
+            uploadIcon: document.getElementById('uploadIcon'),
+            uploadText: document.getElementById('uploadText'),
+            uploadHint: document.getElementById('uploadHint'),
+            folderInput: document.getElementById('folderInput'),
+            fileInput: document.getElementById('fileInput'),
+            browserWarning: document.getElementById('browserWarning'),
+            fileList: document.getElementById('fileList'),
+            fileListContent: document.getElementById('fileListContent'),
+            fileCount: document.getElementById('fileCount'),
+            templateSelector: document.getElementById('templateSelector'),
+            templateSelect: document.getElementById('templateSelect'),
+            assetSummary: document.getElementById('assetSummary'),
+            convertBtn: document.getElementById('convertBtn'),
+            progressBar: document.getElementById('progressBar'),
+            progressFill: document.getElementById('progressFill'),
+            status: document.getElementById('status'),
+            preview: document.getElementById('preview'),
+            previewTabs: document.getElementById('previewTabs'),
+            previewContent: document.getElementById('previewContent'),
+            advancedToggle: document.getElementById('advancedToggle'),
+            advancedSettings: document.getElementById('advancedSettings')
+        };
 
-        // Mode Toggle
-        folderModeBtn.addEventListener('click', () => {
-            uploadMode = 'folder';
-            folderModeBtn.classList.add('active');
-            fileModeBtn.classList.remove('active');
-            uploadIcon.textContent = '📂';
-            uploadText.textContent = 'Webサイトのフォルダをドラッグ&ドロップ';
-            uploadHint.textContent = 'または クリックしてフォルダを選択（CSS, JS, 画像も自動で含まれます）';
-            resetUpload();
-        });
-
-        fileModeBtn.addEventListener('click', () => {
-            uploadMode = 'file';
-            fileModeBtn.classList.add('active');
-            folderModeBtn.classList.remove('active');
-            uploadIcon.textContent = '📄';
-            uploadText.textContent = 'DWTファイルをドラッグ&ドロップ';
-            uploadHint.textContent = 'または クリックしてファイルを選択';
-            resetUpload();
-        });
-
-        function resetUpload() {
-            uploadedFiles.clear();
-            templateContent = '';
-            fileList.classList.remove('show');
-            assetSummary.style.display = 'none';
-            convertBtn.disabled = true;
-            preview.classList.remove('show');
-            status.classList.remove('show');
+        // ============================================
+        // Utility Functions
+        // ============================================
+        function sanitizeSlug(name) {
+            return name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')  // 非英数字を1つのハイフンに
+                .replace(/^-+|-+$/g, '')       // 先頭・末尾のハイフンを削除
+                .substring(0, 50);             // 長さ制限
         }
 
-        // Upload Area Events
-        uploadArea.addEventListener('click', () => {
-            if (uploadMode === 'folder') {
-                folderInput.click();
-            } else {
-                fileInput.click();
-            }
-        });
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-
-            const items = e.dataTransfer.items;
-            if (items) {
-                const filePromises = [];
-                for (const item of items) {
-                    if (item.kind === 'file') {
-                        const entry = item.webkitGetAsEntry();
-                        if (entry) {
-                            filePromises.push(traverseFileTree(entry, ''));
-                        }
-                    }
-                }
-                await Promise.all(filePromises);
-                processUploadedFiles();
-            }
-        });
-
-        // File Input Events
-        folderInput.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files);
-            for (const file of files) {
-                const path = file.webkitRelativePath || file.name;
-                await readAndStoreFile(file, path);
-            }
-            processUploadedFiles();
-        });
-
-        fileInput.addEventListener('change', async (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                await readAndStoreFile(file, file.name);
-                processUploadedFiles();
-            }
-        });
-
-        // Traverse directory tree
-        async function traverseFileTree(entry, path) {
-            if (entry.isFile) {
-                return new Promise((resolve) => {
-                    entry.file(async (file) => {
-                        const fullPath = path ? `${path}/${entry.name}` : entry.name;
-                        await readAndStoreFile(file, fullPath);
-                        resolve();
-                    });
-                });
-            } else if (entry.isDirectory) {
-                const dirReader = entry.createReader();
-                return new Promise((resolve) => {
-                    const readEntries = () => {
-                        dirReader.readEntries(async (entries) => {
-                            if (entries.length === 0) {
-                                resolve();
-                            } else {
-                                const newPath = path ? `${path}/${entry.name}` : entry.name;
-                                await Promise.all(entries.map(e => traverseFileTree(e, newPath)));
-                                readEntries(); // Continue reading if there are more entries
-                            }
-                        });
-                    };
-                    readEntries();
-                });
-            }
-        }
-
-        // Read and store file
-        async function readAndStoreFile(file, path) {
-            const type = getFileType(file.name);
-
-            // Skip hidden files and certain directories
-            if (path.includes('/.') || path.startsWith('.') ||
-                path.includes('node_modules') || path.includes('.git')) {
-                return;
-            }
-
-            const fileData = { file, type, path };
-
-            // Read content for text files
-            if (['template', 'css', 'js', 'html'].includes(type)) {
-                fileData.content = await readFileAsText(file);
-            } else if (type === 'image' || type === 'font') {
-                fileData.content = await readFileAsArrayBuffer(file);
-            }
-
-            uploadedFiles.set(path, fileData);
-        }
-
-        function readFileAsText(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = () => resolve('');
-                reader.readAsText(file);
-            });
-        }
-
-        function readFileAsArrayBuffer(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = () => resolve(null);
-                reader.readAsArrayBuffer(file);
-            });
-        }
-
-        function getFileType(filename) {
-            const ext = filename.split('.').pop().toLowerCase();
-            if (ext === 'dwt') return 'template';
-            if (['css', 'scss', 'less'].includes(ext)) return 'css';
-            if (['js', 'mjs'].includes(ext)) return 'js';
-            if (['html', 'htm'].includes(ext)) return 'html';
-            if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico'].includes(ext)) return 'image';
-            if (['woff', 'woff2', 'ttf', 'eot', 'otf'].includes(ext)) return 'font';
-            return 'other';
-        }
-
-        function getFileTypeClass(type) {
-            const classes = {
-                'template': 'dwt',
-                'css': 'css',
-                'js': 'js',
-                'image': 'img',
-                'font': 'other',
-                'html': 'dwt',
-                'other': 'other'
-            };
-            return classes[type] || 'other';
-        }
-
-        // Process uploaded files
-        function processUploadedFiles() {
-            if (uploadedFiles.size === 0) return;
-
-            // Find template file
-            let templateFile = null;
-            for (const [path, data] of uploadedFiles) {
-                if (data.type === 'template') {
-                    templateFile = data;
-                    templateContent = data.content;
-                    break;
-                }
-            }
-
-            // If no .dwt, look for index.html
-            if (!templateFile) {
-                for (const [path, data] of uploadedFiles) {
-                    if (data.type === 'html' && (path.endsWith('index.html') || path.endsWith('index.htm'))) {
-                        templateFile = data;
-                        templateContent = data.content;
-                        break;
-                    }
-                }
-            }
-
-            // Count file types
-            const counts = { template: 0, css: 0, js: 0, image: 0, font: 0, other: 0 };
-            for (const [path, data] of uploadedFiles) {
-                counts[data.type] = (counts[data.type] || 0) + 1;
-            }
-
-            // Update UI
-            displayFileList();
-
-            document.getElementById('templateCount').textContent = counts.template || counts.html || 0;
-            document.getElementById('cssCount').textContent = counts.css;
-            document.getElementById('jsCount').textContent = counts.js;
-            document.getElementById('imgCount').textContent = counts.image;
-
-            assetSummary.style.display = 'grid';
-            fileList.classList.add('show');
-
-            convertBtn.disabled = !templateContent;
-
-            if (!templateContent) {
-                showStatus('テンプレートファイル(.dwt)またはindex.htmlが見つかりません', 'error');
-            }
-        }
-
-        function displayFileList() {
-            const sortedFiles = Array.from(uploadedFiles.entries()).sort((a, b) => {
-                const typeOrder = { template: 0, html: 1, css: 2, js: 3, image: 4, font: 5, other: 6 };
-                return (typeOrder[a[1].type] || 6) - (typeOrder[b[1].type] || 6);
-            });
-
-            fileListContent.innerHTML = sortedFiles.map(([path, data]) => `
-                <div class="file-item">
-                    <span class="file-item-name">
-                        ${path}
-                        <span class="file-item-type ${getFileTypeClass(data.type)}">${data.type}</span>
-                    </span>
-                    <span class="file-item-size">${formatFileSize(data.file.size)}</span>
-                </div>
-            `).join('');
-
-            fileCount.textContent = `${uploadedFiles.size} files`;
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function formatFileSize(bytes) {
@@ -739,37 +671,379 @@
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
-        function showStatus(message, type) {
-            status.textContent = message;
-            status.className = 'status show ' + type;
+        function getFileType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const typeMap = {
+                'dwt': 'template',
+                'css': 'css', 'scss': 'css', 'less': 'css',
+                'js': 'js', 'mjs': 'js',
+                'html': 'html', 'htm': 'html',
+                'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image',
+                'svg': 'image', 'webp': 'image', 'ico': 'image',
+                'woff': 'font', 'woff2': 'font', 'ttf': 'font', 'eot': 'font', 'otf': 'font'
+            };
+            return typeMap[ext] || 'other';
         }
 
-        // Convert Button
-        convertBtn.addEventListener('click', async () => {
-            if (!templateContent) {
-                showStatus('テンプレートファイルを先にアップロードしてください', 'error');
+        function getFileTypeClass(type) {
+            const classes = {
+                'template': 'dwt', 'css': 'css', 'js': 'js',
+                'image': 'img', 'font': 'other', 'html': 'dwt', 'other': 'other'
+            };
+            return classes[type] || 'other';
+        }
+
+        function detectBasePath(files) {
+            const paths = Array.from(files.keys());
+            if (paths.length === 0) return '';
+
+            const parts = paths[0].split('/');
+            if (parts.length > 1) {
+                return parts[0];
+            }
+            return '';
+        }
+
+        function normalizeAssetPath(originalPath, basePath) {
+            let path = originalPath;
+
+            // ベースパスを除去
+            if (basePath && path.startsWith(basePath + '/')) {
+                path = path.substring(basePath.length + 1);
+            }
+
+            return path;
+        }
+
+        // ============================================
+        // Browser Compatibility Check
+        // ============================================
+        function checkBrowserSupport() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            const supportsDirectory = 'webkitdirectory' in input;
+
+            if (!supportsDirectory) {
+                elements.browserWarning.style.display = 'block';
+                elements.folderModeBtn.disabled = true;
+                elements.fileModeBtn.click();
+            }
+        }
+
+        // ============================================
+        // Mode Toggle
+        // ============================================
+        elements.folderModeBtn.addEventListener('click', () => {
+            state.uploadMode = 'folder';
+            elements.folderModeBtn.classList.add('active');
+            elements.fileModeBtn.classList.remove('active');
+            elements.uploadIcon.textContent = '📂';
+            elements.uploadText.textContent = 'Webサイトのフォルダをドラッグ&ドロップ';
+            elements.uploadHint.textContent = 'または クリックしてフォルダを選択（CSS, JS, 画像も自動で含まれます）';
+            resetUpload();
+        });
+
+        elements.fileModeBtn.addEventListener('click', () => {
+            state.uploadMode = 'file';
+            elements.fileModeBtn.classList.add('active');
+            elements.folderModeBtn.classList.remove('active');
+            elements.uploadIcon.textContent = '📄';
+            elements.uploadText.textContent = 'DWTファイルをドラッグ&ドロップ';
+            elements.uploadHint.textContent = 'または クリックしてファイルを選択（複数選択可）';
+            resetUpload();
+        });
+
+        // Advanced Settings Toggle
+        elements.advancedToggle.addEventListener('click', () => {
+            const isOpen = elements.advancedSettings.classList.toggle('show');
+            elements.advancedToggle.textContent = isOpen ? '▼ 詳細設定' : '▶ 詳細設定';
+        });
+
+        function resetUpload() {
+            state.uploadedFiles.clear();
+            state.templateFiles = [];
+            state.selectedTemplate = null;
+            state.basePath = '';
+            elements.fileList.classList.remove('show');
+            elements.templateSelector.classList.remove('show');
+            elements.assetSummary.style.display = 'none';
+            elements.convertBtn.disabled = true;
+            elements.preview.classList.remove('show');
+            elements.status.classList.remove('show');
+        }
+
+        // ============================================
+        // File Upload Handlers
+        // ============================================
+        elements.uploadArea.addEventListener('click', () => {
+            if (state.uploadMode === 'folder') {
+                elements.folderInput.click();
+            } else {
+                elements.fileInput.click();
+            }
+        });
+
+        elements.uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            elements.uploadArea.classList.add('dragover');
+        });
+
+        elements.uploadArea.addEventListener('dragleave', () => {
+            elements.uploadArea.classList.remove('dragover');
+        });
+
+        elements.uploadArea.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            elements.uploadArea.classList.remove('dragover');
+            showStatus('ファイルを読み込み中...', 'warning');
+
+            const items = e.dataTransfer.items;
+            if (items) {
+                const filePromises = [];
+                for (const item of items) {
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry?.();
+                        if (entry) {
+                            filePromises.push(traverseFileTree(entry, ''));
+                        } else {
+                            const file = item.getAsFile();
+                            if (file) {
+                                filePromises.push(readAndStoreFile(file, file.name));
+                            }
+                        }
+                    }
+                }
+                await Promise.all(filePromises);
+                processUploadedFiles();
+            }
+        });
+
+        elements.folderInput.addEventListener('change', async (e) => {
+            showStatus('ファイルを読み込み中...', 'warning');
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                const path = file.webkitRelativePath || file.name;
+                await readAndStoreFile(file, path);
+            }
+            processUploadedFiles();
+        });
+
+        elements.fileInput.addEventListener('change', async (e) => {
+            showStatus('ファイルを読み込み中...', 'warning');
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                await readAndStoreFile(file, file.name);
+            }
+            processUploadedFiles();
+        });
+
+        // Template Selection
+        elements.templateSelect.addEventListener('change', (e) => {
+            state.selectedTemplate = e.target.value;
+        });
+
+        // ============================================
+        // File Reading Functions
+        // ============================================
+        async function traverseFileTree(entry, path) {
+            if (entry.isFile) {
+                return new Promise((resolve) => {
+                    entry.file(async (file) => {
+                        const fullPath = path ? `${path}/${entry.name}` : entry.name;
+                        await readAndStoreFile(file, fullPath);
+                        resolve();
+                    }, resolve);
+                });
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                return new Promise((resolve) => {
+                    const allEntries = [];
+                    const readEntries = () => {
+                        dirReader.readEntries(async (entries) => {
+                            if (entries.length === 0) {
+                                const newPath = path ? `${path}/${entry.name}` : entry.name;
+                                await Promise.all(allEntries.map(e => traverseFileTree(e, newPath)));
+                                resolve();
+                            } else {
+                                allEntries.push(...entries);
+                                readEntries();
+                            }
+                        }, resolve);
+                    };
+                    readEntries();
+                });
+            }
+        }
+
+        async function readAndStoreFile(file, path) {
+            // Skip hidden files and unwanted directories
+            if (path.includes('/.') || path.startsWith('.') ||
+                path.includes('node_modules') || path.includes('.git') ||
+                path.includes('__MACOSX') || path.includes('.DS_Store')) {
+                return;
+            }
+
+            const type = getFileType(file.name);
+            const fileData = { file, type, path };
+
+            try {
+                if (['template', 'css', 'js', 'html'].includes(type)) {
+                    fileData.content = await readFileAsText(file);
+                } else if (type === 'image' || type === 'font') {
+                    fileData.content = await readFileAsArrayBuffer(file);
+                }
+            } catch (error) {
+                console.warn(`Failed to read file: ${path}`, error);
+                return;
+            }
+
+            state.uploadedFiles.set(path, fileData);
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // ============================================
+        // Process Uploaded Files
+        // ============================================
+        function processUploadedFiles() {
+            if (state.uploadedFiles.size === 0) {
+                showStatus('ファイルが見つかりませんでした', 'error');
+                return;
+            }
+
+            // Detect base path
+            state.basePath = detectBasePath(state.uploadedFiles);
+
+            // Find template files
+            state.templateFiles = [];
+            for (const [path, data] of state.uploadedFiles) {
+                if (data.type === 'template' || data.type === 'html') {
+                    state.templateFiles.push({ path, data });
+                }
+            }
+
+            // Sort: .dwt first, then index.html, then others
+            state.templateFiles.sort((a, b) => {
+                const aIsDwt = a.path.endsWith('.dwt');
+                const bIsDwt = b.path.endsWith('.dwt');
+                const aIsIndex = a.path.includes('index.htm');
+                const bIsIndex = b.path.includes('index.htm');
+
+                if (aIsDwt && !bIsDwt) return -1;
+                if (!aIsDwt && bIsDwt) return 1;
+                if (aIsIndex && !bIsIndex) return -1;
+                if (!aIsIndex && bIsIndex) return 1;
+                return a.path.localeCompare(b.path);
+            });
+
+            // Update template selector
+            if (state.templateFiles.length > 1) {
+                elements.templateSelect.innerHTML = state.templateFiles
+                    .map(t => `<option value="${escapeHtml(t.path)}">${escapeHtml(t.path)}</option>`)
+                    .join('');
+                elements.templateSelector.classList.add('show');
+                state.selectedTemplate = state.templateFiles[0].path;
+            } else if (state.templateFiles.length === 1) {
+                state.selectedTemplate = state.templateFiles[0].path;
+                elements.templateSelector.classList.remove('show');
+            }
+
+            // Count file types
+            const counts = { template: 0, html: 0, css: 0, js: 0, image: 0, font: 0, other: 0 };
+            for (const [, data] of state.uploadedFiles) {
+                counts[data.type] = (counts[data.type] || 0) + 1;
+            }
+
+            // Update UI
+            displayFileList();
+            document.getElementById('templateCount').textContent = counts.template + counts.html;
+            document.getElementById('cssCount').textContent = counts.css;
+            document.getElementById('jsCount').textContent = counts.js;
+            document.getElementById('imgCount').textContent = counts.image;
+
+            elements.assetSummary.style.display = 'grid';
+            elements.fileList.classList.add('show');
+            elements.convertBtn.disabled = state.templateFiles.length === 0;
+
+            if (state.templateFiles.length === 0) {
+                showStatus('テンプレートファイル(.dwt)またはHTMLファイルが見つかりません', 'error');
+            } else {
+                showStatus(`${state.uploadedFiles.size}個のファイルを読み込みました`, 'success');
+            }
+        }
+
+        function displayFileList() {
+            const sortedFiles = Array.from(state.uploadedFiles.entries()).sort((a, b) => {
+                const typeOrder = { template: 0, html: 1, css: 2, js: 3, image: 4, font: 5, other: 6 };
+                return (typeOrder[a[1].type] || 6) - (typeOrder[b[1].type] || 6);
+            });
+
+            elements.fileListContent.innerHTML = sortedFiles.map(([path, data]) => `
+                <div class="file-item">
+                    <span class="file-item-name">
+                        ${escapeHtml(path)}
+                        <span class="file-item-type ${getFileTypeClass(data.type)}">${data.type}</span>
+                    </span>
+                    <span class="file-item-size">${formatFileSize(data.file.size)}</span>
+                </div>
+            `).join('');
+
+            elements.fileCount.textContent = `${state.uploadedFiles.size} files`;
+        }
+
+        function showStatus(message, type) {
+            elements.status.textContent = message;
+            elements.status.className = 'status show ' + type;
+        }
+
+        // ============================================
+        // Convert Button Handler
+        // ============================================
+        elements.convertBtn.addEventListener('click', async () => {
+            if (!state.selectedTemplate) {
+                showStatus('テンプレートファイルを選択してください', 'error');
                 return;
             }
 
             try {
-                convertBtn.disabled = true;
-                progressBar.classList.add('show');
+                elements.convertBtn.disabled = true;
+                elements.progressBar.classList.add('show');
                 updateProgress(10);
+                showStatus('変換中...', 'warning');
 
-                showStatus('変換中...', 'success');
+                // Get template content
+                const templateData = state.uploadedFiles.get(state.selectedTemplate);
+                if (!templateData || !templateData.content) {
+                    throw new Error('テンプレートファイルの読み込みに失敗しました');
+                }
+
+                updateProgress(30);
 
                 // Generate WordPress theme files
-                updateProgress(30);
-                generatedFiles = convertToWordPress(templateContent);
+                state.generatedFiles = convertToWordPress(templateData.content);
 
                 updateProgress(60);
-
-                // Show preview
                 showPreview();
 
                 updateProgress(80);
 
-                // Generate ZIP with all assets
+                // Generate ZIP
                 await generateZip();
 
                 updateProgress(100);
@@ -778,305 +1052,144 @@
                 showStatus('エラー: ' + error.message, 'error');
                 console.error(error);
             } finally {
-                convertBtn.disabled = false;
+                elements.convertBtn.disabled = false;
                 setTimeout(() => {
-                    progressBar.classList.remove('show');
+                    elements.progressBar.classList.remove('show');
                     updateProgress(0);
                 }, 1000);
             }
         });
 
         function updateProgress(percent) {
-            progressFill.style.width = percent + '%';
+            elements.progressFill.style.width = percent + '%';
         }
 
+        // ============================================
         // WordPress Converter
-        function convertToWordPress(content) {
-            const themeName = document.getElementById('themeName').value || 'My Theme';
-            const themeAuthor = document.getElementById('themeAuthor').value || 'Author';
-            const themeDescription = document.getElementById('themeDescription').value || 'Converted theme';
-            const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
-            // Extract head and body content
-            const headMatch = content.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
-            const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-            const bodyTagMatch = content.match(/<body([^>]*)>/i);
-
-            const headContent = headMatch ? headMatch[1] : '';
-            const bodyContent = bodyMatch ? bodyMatch[1] : '';
-            const bodyAttributes = bodyTagMatch ? bodyTagMatch[1] : '';
-
-            // Find the main editable region
-            let beforeContent = bodyContent;
-            let afterContent = '';
-
-            const mainEditableMatch = bodyContent.match(/([\s\S]*?)<!--\s*TemplateBeginEditable\s+name="(main|content|body|maincontent)"[\s\S]*?-->([\s\S]*?)<!--\s*TemplateEndEditable\s*-->([\s\S]*)/i);
-
-            if (mainEditableMatch) {
-                beforeContent = mainEditableMatch[1];
-                afterContent = mainEditableMatch[4];
-            } else {
-                const firstEditableMatch = bodyContent.match(/([\s\S]*?)<!--\s*TemplateBeginEditable[\s\S]*?-->([\s\S]*?)<!--\s*TemplateEndEditable\s*-->([\s\S]*)/i);
-                if (firstEditableMatch) {
-                    beforeContent = firstEditableMatch[1];
-                    afterContent = firstEditableMatch[3];
-                }
-            }
-
-            // Clean up template comments
-            beforeContent = cleanTemplateComments(beforeContent);
-            afterContent = cleanTemplateComments(afterContent);
-
-            // Fix asset paths for WordPress
-            beforeContent = fixAssetPaths(beforeContent, themeSlug);
-            afterContent = fixAssetPaths(afterContent, themeSlug);
-            const fixedHeadContent = fixAssetPaths(cleanHeadContent(headContent), themeSlug);
-
-            // Collect CSS from external files and inline styles
-            let allCss = extractStyles(content);
-            for (const [path, data] of uploadedFiles) {
-                if (data.type === 'css' && data.content) {
-                    allCss += `\n/* From: ${path} */\n${data.content}\n`;
-                }
-            }
-
-            // Generate style.css
-            const styleCss = `/*
-Theme Name: ${themeName}
-Theme URI:
-Author: ${themeAuthor}
-Author URI:
-Description: ${themeDescription}
-Version: 1.0.0
-License: GNU General Public License v2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Text Domain: ${themeSlug}
-*/
-
-${allCss}
-`;
-
-            // Build enqueue scripts for functions.php
-            const jsFiles = [];
-            const cssFiles = [];
-            for (const [path, data] of uploadedFiles) {
-                if (data.type === 'js') {
-                    jsFiles.push(path);
-                } else if (data.type === 'css') {
-                    cssFiles.push(path);
-                }
-            }
-
-            // Generate header.php
-            const headerPhp = `<!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-    <meta charset="<?php bloginfo('charset'); ?>">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <?php wp_head(); ?>
-${fixedHeadContent}
-</head>
-<body <?php body_class(); ?>${bodyAttributes}>
-<?php wp_body_open(); ?>
-${beforeContent}
-`;
-
-            // Generate footer.php
-            const footerPhp = `${afterContent}
-<?php wp_footer(); ?>
-</body>
-</html>
-`;
-
-            // Generate index.php
-            const indexPhp = `<?php
-/**
- * The main template file
- */
-
-get_header(); ?>
-
-<main id="main-content" class="site-main">
-    <?php
-    if (have_posts()) :
-        while (have_posts()) :
-            the_post();
-    ?>
-        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-            <header class="entry-header">
-                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
-            </header>
-            <div class="entry-content">
-                <?php the_content(); ?>
-            </div>
-        </article>
-    <?php
-        endwhile;
-        the_posts_navigation();
-    else :
-    ?>
-        <p><?php esc_html_e('No content found.', '${themeSlug}'); ?></p>
-    <?php endif; ?>
-</main>
-
-<?php get_footer(); ?>
-`;
-
-            // Generate functions.php with asset enqueuing
-            const functionsPhp = generateFunctionsPhp(themeName, themeSlug, jsFiles, cssFiles);
-
-            // Generate page.php
-            const pagePhp = `<?php
-/**
- * The template for displaying pages
- */
-
-get_header(); ?>
-
-<main id="main-content" class="site-main">
-    <?php
-    while (have_posts()) :
-        the_post();
-    ?>
-        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-            <header class="entry-header">
-                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
-            </header>
-            <div class="entry-content">
-                <?php the_content(); ?>
-            </div>
-        </article>
-    <?php endwhile; ?>
-</main>
-
-<?php get_footer(); ?>
-`;
-
-            // Generate single.php
-            const singlePhp = `<?php
-/**
- * The template for displaying single posts
- */
-
-get_header(); ?>
-
-<main id="main-content" class="site-main">
-    <?php
-    while (have_posts()) :
-        the_post();
-    ?>
-        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-            <header class="entry-header">
-                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
-                <div class="entry-meta">
-                    <span class="posted-on"><?php echo get_the_date(); ?></span>
-                    <span class="byline"><?php the_author(); ?></span>
-                </div>
-            </header>
-            <div class="entry-content">
-                <?php the_content(); ?>
-            </div>
-            <footer class="entry-footer">
-                <?php
-                the_category(', ');
-                the_tags('<span class="tags">', ', ', '</span>');
-                ?>
-            </footer>
-        </article>
-    <?php endwhile; ?>
-</main>
-
-<?php get_footer(); ?>
-`;
-
+        // ============================================
+        function getThemeSettings() {
+            const name = document.getElementById('themeName').value.trim() || 'My Theme';
             return {
-                'style.css': styleCss,
-                'header.php': headerPhp,
-                'footer.php': footerPhp,
-                'index.php': indexPhp,
-                'functions.php': functionsPhp,
-                'page.php': pagePhp,
-                'single.php': singlePhp
+                name,
+                slug: sanitizeSlug(name) || 'my-theme',
+                author: document.getElementById('themeAuthor').value.trim() || 'Author',
+                description: document.getElementById('themeDescription').value.trim() || 'Converted from Dreamweaver template',
+                cssHandling: document.getElementById('cssHandling').value,
+                jsHandling: document.getElementById('jsHandling').value,
+                contentRegions: document.getElementById('contentRegion').value.split(',').map(s => s.trim().toLowerCase()),
+                includeComments: document.getElementById('includeComments').checked,
+                preserveStructure: document.getElementById('preserveStructure').checked
             };
         }
 
-        function generateFunctionsPhp(themeName, themeSlug, jsFiles, cssFiles) {
-            const funcPrefix = themeSlug.replace(/-/g, '_');
+        function convertToWordPress(content) {
+            const settings = getThemeSettings();
 
-            let enqueueCode = `    wp_enqueue_style('${themeSlug}-style', get_stylesheet_uri(), array(), '1.0.0');\n`;
+            // Parse HTML structure
+            const headMatch = content.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+            const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            const bodyTagMatch = content.match(/<body([^>]*)>/i);
+            const doctypeMatch = content.match(/<!DOCTYPE[^>]*>/i);
 
-            cssFiles.forEach((file, index) => {
-                const handle = `${themeSlug}-css-${index}`;
-                const cleanPath = file.replace(/^[^/]+\//, ''); // Remove first directory
-                enqueueCode += `    wp_enqueue_style('${handle}', get_template_directory_uri() . '/assets/${cleanPath}', array(), '1.0.0');\n`;
-            });
+            const headContent = headMatch ? headMatch[1] : '';
+            const bodyContent = bodyMatch ? bodyMatch[1] : '';
+            const bodyAttributes = bodyTagMatch ? bodyTagMatch[1].trim() : '';
 
-            jsFiles.forEach((file, index) => {
-                const handle = `${themeSlug}-js-${index}`;
-                const cleanPath = file.replace(/^[^/]+\//, '');
-                enqueueCode += `    wp_enqueue_script('${handle}', get_template_directory_uri() . '/assets/${cleanPath}', array('jquery'), '1.0.0', true);\n`;
-            });
+            // Find all editable regions
+            const editableRegions = parseEditableRegions(bodyContent);
 
-            return `<?php
-/**
- * ${themeName} functions and definitions
- */
+            // Find content region
+            let beforeContent = bodyContent;
+            let afterContent = '';
+            let contentRegionFound = false;
 
-if (!defined('ABSPATH')) {
-    exit;
-}
+            for (const regionName of settings.contentRegions) {
+                const region = editableRegions.find(r => r.name.toLowerCase() === regionName);
+                if (region) {
+                    beforeContent = bodyContent.substring(0, region.startIndex);
+                    afterContent = bodyContent.substring(region.endIndex);
+                    contentRegionFound = true;
+                    break;
+                }
+            }
 
-/**
- * Enqueue scripts and styles
- */
-function ${funcPrefix}_scripts() {
-${enqueueCode}}
-add_action('wp_enqueue_scripts', '${funcPrefix}_scripts');
+            // If no named region found, use first editable region
+            if (!contentRegionFound && editableRegions.length > 0) {
+                const firstRegion = editableRegions[0];
+                beforeContent = bodyContent.substring(0, firstRegion.startIndex);
+                afterContent = bodyContent.substring(firstRegion.endIndex);
+            }
 
-/**
- * Register navigation menus
- */
-function ${funcPrefix}_menus() {
-    register_nav_menus(array(
-        'primary' => __('Primary Menu', '${themeSlug}'),
-        'footer'  => __('Footer Menu', '${themeSlug}'),
-    ));
-}
-add_action('after_setup_theme', '${funcPrefix}_menus');
+            // Clean template comments
+            beforeContent = cleanTemplateComments(beforeContent);
+            afterContent = cleanTemplateComments(afterContent);
 
-/**
- * Theme setup
- */
-function ${funcPrefix}_setup() {
-    add_theme_support('title-tag');
-    add_theme_support('post-thumbnails');
-    add_theme_support('html5', array(
-        'search-form',
-        'comment-form',
-        'comment-list',
-        'gallery',
-        'caption',
-    ));
-    add_theme_support('custom-logo');
-}
-add_action('after_setup_theme', '${funcPrefix}_setup');
+            // Process asset paths
+            const processedHead = processAssetPaths(cleanHeadContent(headContent), settings);
+            const processedBefore = processAssetPaths(beforeContent, settings);
+            const processedAfter = processAssetPaths(afterContent, settings);
 
-/**
- * Register widget areas
- */
-function ${funcPrefix}_widgets_init() {
-    register_sidebar(array(
-        'name'          => __('Sidebar', '${themeSlug}'),
-        'id'            => 'sidebar-1',
-        'description'   => __('Add widgets here.', '${themeSlug}'),
-        'before_widget' => '<section id="%1$s" class="widget %2$s">',
-        'after_widget'  => '</section>',
-        'before_title'  => '<h2 class="widget-title">',
-        'after_title'   => '</h2>',
-    ));
-}
-add_action('widgets_init', '${funcPrefix}_widgets_init');
-`;
+            // Collect assets
+            const cssFiles = [];
+            const jsFiles = [];
+            for (const [path, data] of state.uploadedFiles) {
+                const normalizedPath = normalizeAssetPath(path, state.basePath);
+                if (data.type === 'css') {
+                    cssFiles.push({ path, normalizedPath, content: data.content });
+                } else if (data.type === 'js') {
+                    jsFiles.push({ path, normalizedPath });
+                }
+            }
+
+            // Generate files
+            const files = {};
+
+            // style.css
+            files['style.css'] = generateStyleCss(settings, content, cssFiles);
+
+            // header.php
+            files['header.php'] = generateHeaderPhp(settings, processedHead, processedBefore, bodyAttributes);
+
+            // footer.php
+            files['footer.php'] = generateFooterPhp(settings, processedAfter);
+
+            // index.php
+            files['index.php'] = generateIndexPhp(settings);
+
+            // page.php
+            files['page.php'] = generatePagePhp(settings);
+
+            // single.php
+            files['single.php'] = generateSinglePhp(settings);
+
+            // functions.php
+            files['functions.php'] = generateFunctionsPhp(settings, cssFiles, jsFiles);
+
+            // sidebar.php
+            files['sidebar.php'] = generateSidebarPhp(settings);
+
+            // 404.php
+            files['404.php'] = generate404Php(settings);
+
+            return files;
+        }
+
+        function parseEditableRegions(content) {
+            const regions = [];
+            const regex = /<!--\s*TemplateBeginEditable\s+name="([^"]+)"[^>]*-->([\s\S]*?)<!--\s*TemplateEndEditable\s*-->/gi;
+            let match;
+
+            while ((match = regex.exec(content)) !== null) {
+                regions.push({
+                    name: match[1],
+                    content: match[2],
+                    startIndex: match.index,
+                    endIndex: match.index + match[0].length,
+                    fullMatch: match[0]
+                });
+            }
+
+            return regions;
         }
 
         function cleanTemplateComments(content) {
@@ -1085,45 +1198,614 @@ add_action('widgets_init', '${funcPrefix}_widgets_init');
                 .replace(/<!--\s*TemplateEndEditable\s*-->/gi, '')
                 .replace(/<!--\s*TemplateBegin[^>]*-->/gi, '')
                 .replace(/<!--\s*TemplateEnd[^>]*-->/gi, '')
+                .replace(/<!--\s*TemplateParam[^>]*-->/gi, '')
                 .replace(/<!--\s*InstanceBegin[^>]*-->/gi, '')
                 .replace(/<!--\s*InstanceEnd[^>]*-->/gi, '')
+                .replace(/<!--\s*InstanceParam[^>]*-->/gi, '')
                 .replace(/<!--\s*#BeginEditable[^>]*-->/gi, '')
-                .replace(/<!--\s*#EndEditable\s*-->/gi, '');
+                .replace(/<!--\s*#EndEditable\s*-->/gi, '')
+                .replace(/<!--\s*#BeginLibraryItem[^>]*-->/gi, '')
+                .replace(/<!--\s*#EndLibraryItem\s*-->/gi, '');
         }
 
         function cleanHeadContent(content) {
-            let cleaned = content.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
-            cleaned = cleanTemplateComments(cleaned);
-            cleaned = cleaned.replace(/<meta[^>]*charset[^>]*>/gi, '');
-            return cleaned.trim();
+            return content
+                .replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '')
+                .replace(/<meta[^>]*charset[^>]*>/gi, '')
+                .replace(/<!--[\s\S]*?-->/g, '') // Remove all HTML comments
+                .trim();
         }
 
-        function extractStyles(content) {
+        function processAssetPaths(content, settings) {
+            const themeUri = "<?php echo esc_url(get_template_directory_uri()); ?>";
+            const assetBase = settings.preserveStructure ? '/assets' : '/assets';
+
+            return content
+                // img src
+                .replace(/(<img[^>]*\s+src=["'])(?!http|\/\/|data:|#)([^"']+)(["'])/gi, (match, pre, path, post) => {
+                    const cleanPath = path.replace(/^\.?\/?/, '');
+                    return `${pre}${themeUri}${assetBase}/${cleanPath}${post}`;
+                })
+                // script src
+                .replace(/(<script[^>]*\s+src=["'])(?!http|\/\/|data:)([^"']+)(["'])/gi, (match, pre, path, post) => {
+                    const cleanPath = path.replace(/^\.?\/?/, '');
+                    return `${pre}${themeUri}${assetBase}/${cleanPath}${post}`;
+                })
+                // link href (CSS)
+                .replace(/(<link[^>]*\s+href=["'])(?!http|\/\/|data:|#)([^"']+\.css)([^"']*["'])/gi, (match, pre, path, post) => {
+                    const cleanPath = path.replace(/^\.?\/?/, '');
+                    return `${pre}${themeUri}${assetBase}/${cleanPath}${post}`;
+                })
+                // background url()
+                .replace(/url\(["']?(?!http|\/\/|data:)([^"')]+)["']?\)/gi, (match, path) => {
+                    const cleanPath = path.replace(/^\.?\/?/, '');
+                    return `url(${themeUri}${assetBase}/${cleanPath})`;
+                })
+                // srcset
+                .replace(/srcset=["']([^"']+)["']/gi, (match, srcset) => {
+                    const newSrcset = srcset.split(',').map(src => {
+                        const parts = src.trim().split(/\s+/);
+                        if (parts[0] && !parts[0].match(/^(http|\/\/|data:)/)) {
+                            const cleanPath = parts[0].replace(/^\.?\/?/, '');
+                            parts[0] = `${themeUri}${assetBase}/${cleanPath}`;
+                        }
+                        return parts.join(' ');
+                    }).join(', ');
+                    return `srcset="${newSrcset}"`;
+                });
+        }
+
+        // ============================================
+        // File Generators
+        // ============================================
+        function generateStyleCss(settings, originalContent, cssFiles) {
+            const header = `/*
+Theme Name: ${settings.name}
+Theme URI:
+Author: ${settings.author}
+Author URI:
+Description: ${settings.description}
+Version: 1.0.0
+Requires at least: 5.0
+Tested up to: 6.4
+Requires PHP: 7.4
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: ${settings.slug}
+*/
+
+`;
+            let css = header;
+
+            if (settings.cssHandling === 'merge' || settings.cssHandling === 'both') {
+                // Extract inline styles
+                const inlineStyles = extractInlineStyles(originalContent);
+                if (inlineStyles) {
+                    css += `/* Inline styles from template */\n${inlineStyles}\n\n`;
+                }
+
+                // Merge CSS files
+                for (const cssFile of cssFiles) {
+                    if (cssFile.content) {
+                        css += `/* ========================================\n`;
+                        css += `   Source: ${cssFile.normalizedPath}\n`;
+                        css += `   ======================================== */\n`;
+                        css += cssFile.content + '\n\n';
+                    }
+                }
+            }
+
+            return css;
+        }
+
+        function extractInlineStyles(content) {
             let styles = '';
             const styleMatches = content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi);
             for (const match of styleMatches) {
-                styles += match[1] + '\n';
+                styles += match[1].trim() + '\n';
             }
-            return styles.trim();
+            return styles;
         }
 
-        function fixAssetPaths(content, themeSlug) {
-            // Fix relative paths to use WordPress template directory
-            return content
-                .replace(/src=["'](?!http|\/\/|data:)([^"']+)["']/gi,
-                    'src="<?php echo get_template_directory_uri(); ?>/assets/$1"')
-                .replace(/href=["'](?!http|\/\/|#|data:|mailto:)([^"']+\.css)["']/gi,
-                    'href="<?php echo get_template_directory_uri(); ?>/assets/$1"')
-                .replace(/url\(["']?(?!http|\/\/|data:)([^"')]+)["']?\)/gi,
-                    'url(<?php echo get_template_directory_uri(); ?>/assets/$1)');
+        function generateHeaderPhp(settings, headContent, beforeContent, bodyAttributes) {
+            const comment = settings.includeComments ? `<?php
+/**
+ * The header for our theme
+ *
+ * @package ${settings.name}
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+?>
+` : '';
+
+            const bodyAttr = bodyAttributes ? ` ${bodyAttributes}` : '';
+
+            return `${comment}<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo('charset'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php wp_head(); ?>
+${headContent}
+</head>
+<body <?php body_class(); ?>${bodyAttr}>
+<?php wp_body_open(); ?>
+${beforeContent}
+`;
         }
 
+        function generateFooterPhp(settings, afterContent) {
+            const comment = settings.includeComments ? `<?php
+/**
+ * The footer for our theme
+ *
+ * @package ${settings.name}
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+?>
+` : '';
+
+            return `${comment}${afterContent}
+<?php wp_footer(); ?>
+</body>
+</html>
+`;
+        }
+
+        function generateIndexPhp(settings) {
+            const comment = settings.includeComments ? `/**
+ * The main template file
+ *
+ * @package ${settings.name}
+ */
+
+` : '';
+
+            return `<?php
+${comment}if (!defined('ABSPATH')) {
+    exit;
+}
+
+get_header();
+?>
+
+<main id="primary" class="site-main">
+    <?php
+    if (have_posts()) :
+        if (is_home() && !is_front_page()) :
+            ?>
+            <header>
+                <h1 class="page-title screen-reader-text"><?php single_post_title(); ?></h1>
+            </header>
+            <?php
+        endif;
+
+        while (have_posts()) :
+            the_post();
+            ?>
+            <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+                <header class="entry-header">
+                    <?php
+                    if (is_singular()) :
+                        the_title('<h1 class="entry-title">', '</h1>');
+                    else :
+                        the_title('<h2 class="entry-title"><a href="' . esc_url(get_permalink()) . '" rel="bookmark">', '</a></h2>');
+                    endif;
+                    ?>
+                </header>
+                <div class="entry-content">
+                    <?php
+                    the_content();
+
+                    wp_link_pages(array(
+                        'before' => '<div class="page-links">' . esc_html__('Pages:', '${settings.slug}'),
+                        'after'  => '</div>',
+                    ));
+                    ?>
+                </div>
+            </article>
+            <?php
+        endwhile;
+
+        the_posts_navigation();
+    else :
+        ?>
+        <section class="no-results not-found">
+            <header class="page-header">
+                <h1 class="page-title"><?php esc_html_e('Nothing Found', '${settings.slug}'); ?></h1>
+            </header>
+            <div class="page-content">
+                <p><?php esc_html_e('It seems we can&rsquo;t find what you&rsquo;re looking for.', '${settings.slug}'); ?></p>
+            </div>
+        </section>
+        <?php
+    endif;
+    ?>
+</main>
+
+<?php
+get_sidebar();
+get_footer();
+`;
+        }
+
+        function generatePagePhp(settings) {
+            const comment = settings.includeComments ? `/**
+ * The template for displaying all pages
+ *
+ * @package ${settings.name}
+ */
+
+` : '';
+
+            return `<?php
+${comment}if (!defined('ABSPATH')) {
+    exit;
+}
+
+get_header();
+?>
+
+<main id="primary" class="site-main">
+    <?php
+    while (have_posts()) :
+        the_post();
+        ?>
+        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+            <header class="entry-header">
+                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
+            </header>
+            <div class="entry-content">
+                <?php
+                the_content();
+
+                wp_link_pages(array(
+                    'before' => '<div class="page-links">' . esc_html__('Pages:', '${settings.slug}'),
+                    'after'  => '</div>',
+                ));
+                ?>
+            </div>
+        </article>
+        <?php
+        if (comments_open() || get_comments_number()) :
+            comments_template();
+        endif;
+    endwhile;
+    ?>
+</main>
+
+<?php
+get_sidebar();
+get_footer();
+`;
+        }
+
+        function generateSinglePhp(settings) {
+            const comment = settings.includeComments ? `/**
+ * The template for displaying all single posts
+ *
+ * @package ${settings.name}
+ */
+
+` : '';
+
+            return `<?php
+${comment}if (!defined('ABSPATH')) {
+    exit;
+}
+
+get_header();
+?>
+
+<main id="primary" class="site-main">
+    <?php
+    while (have_posts()) :
+        the_post();
+        ?>
+        <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+            <header class="entry-header">
+                <?php the_title('<h1 class="entry-title">', '</h1>'); ?>
+                <div class="entry-meta">
+                    <?php
+                    printf(
+                        esc_html__('Posted on %s by %s', '${settings.slug}'),
+                        '<time datetime="' . esc_attr(get_the_date('c')) . '">' . esc_html(get_the_date()) . '</time>',
+                        '<span class="author vcard"><a href="' . esc_url(get_author_posts_url(get_the_author_meta('ID'))) . '">' . esc_html(get_the_author()) . '</a></span>'
+                    );
+                    ?>
+                </div>
+            </header>
+
+            <?php if (has_post_thumbnail()) : ?>
+                <div class="post-thumbnail">
+                    <?php the_post_thumbnail('large'); ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="entry-content">
+                <?php
+                the_content();
+
+                wp_link_pages(array(
+                    'before' => '<div class="page-links">' . esc_html__('Pages:', '${settings.slug}'),
+                    'after'  => '</div>',
+                ));
+                ?>
+            </div>
+
+            <footer class="entry-footer">
+                <?php
+                $categories_list = get_the_category_list(esc_html__(', ', '${settings.slug}'));
+                if ($categories_list) {
+                    printf('<span class="cat-links">' . esc_html__('Posted in %s', '${settings.slug}') . '</span>', $categories_list);
+                }
+
+                $tags_list = get_the_tag_list('', esc_html__(', ', '${settings.slug}'));
+                if ($tags_list) {
+                    printf('<span class="tags-links">' . esc_html__('Tagged %s', '${settings.slug}') . '</span>', $tags_list);
+                }
+                ?>
+            </footer>
+        </article>
+
+        <?php
+        the_post_navigation(array(
+            'prev_text' => '<span class="nav-subtitle">' . esc_html__('Previous:', '${settings.slug}') . '</span> <span class="nav-title">%title</span>',
+            'next_text' => '<span class="nav-subtitle">' . esc_html__('Next:', '${settings.slug}') . '</span> <span class="nav-title">%title</span>',
+        ));
+
+        if (comments_open() || get_comments_number()) :
+            comments_template();
+        endif;
+    endwhile;
+    ?>
+</main>
+
+<?php
+get_sidebar();
+get_footer();
+`;
+        }
+
+        function generateSidebarPhp(settings) {
+            return `<?php
+/**
+ * The sidebar containing the main widget area
+ *
+ * @package ${settings.name}
+ */
+
+if (!is_active_sidebar('sidebar-1')) {
+    return;
+}
+?>
+
+<aside id="secondary" class="widget-area">
+    <?php dynamic_sidebar('sidebar-1'); ?>
+</aside>
+`;
+        }
+
+        function generate404Php(settings) {
+            return `<?php
+/**
+ * The template for displaying 404 pages (not found)
+ *
+ * @package ${settings.name}
+ */
+
+get_header();
+?>
+
+<main id="primary" class="site-main">
+    <section class="error-404 not-found">
+        <header class="page-header">
+            <h1 class="page-title"><?php esc_html_e('Oops! That page can&rsquo;t be found.', '${settings.slug}'); ?></h1>
+        </header>
+        <div class="page-content">
+            <p><?php esc_html_e('It looks like nothing was found at this location. Maybe try a search?', '${settings.slug}'); ?></p>
+            <?php get_search_form(); ?>
+        </div>
+    </section>
+</main>
+
+<?php
+get_footer();
+`;
+        }
+
+        function generateFunctionsPhp(settings, cssFiles, jsFiles) {
+            const funcPrefix = settings.slug.replace(/-/g, '_');
+            const inFooter = settings.jsHandling === 'footer';
+            const useDefer = settings.jsHandling === 'defer';
+
+            let enqueueStyles = `    wp_enqueue_style('${settings.slug}-style', get_stylesheet_uri(), array(), _S_VERSION);`;
+
+            // Add CSS files if handling is 'separate' or 'both'
+            if (settings.cssHandling === 'separate' || settings.cssHandling === 'both') {
+                cssFiles.forEach((file, index) => {
+                    const handle = `${settings.slug}-css-${index}`;
+                    enqueueStyles += `\n    wp_enqueue_style('${handle}', get_template_directory_uri() . '/assets/${file.normalizedPath}', array(), _S_VERSION);`;
+                });
+            }
+
+            let enqueueScripts = '';
+            jsFiles.forEach((file, index) => {
+                const handle = `${settings.slug}-js-${index}`;
+                enqueueScripts += `\n    wp_enqueue_script('${handle}', get_template_directory_uri() . '/assets/${file.normalizedPath}', array('jquery'), _S_VERSION, ${inFooter});`;
+            });
+
+            return `<?php
+/**
+ * ${settings.name} functions and definitions
+ *
+ * @package ${settings.name}
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+/**
+ * Theme version
+ */
+define('_S_VERSION', '1.0.0');
+
+/**
+ * Sets up theme defaults and registers support for various WordPress features.
+ */
+function ${funcPrefix}_setup() {
+    // Add default posts and comments RSS feed links to head.
+    add_theme_support('automatic-feed-links');
+
+    // Let WordPress manage the document title.
+    add_theme_support('title-tag');
+
+    // Enable support for Post Thumbnails on posts and pages.
+    add_theme_support('post-thumbnails');
+
+    // Register navigation menus
+    register_nav_menus(array(
+        'primary' => esc_html__('Primary Menu', '${settings.slug}'),
+        'footer'  => esc_html__('Footer Menu', '${settings.slug}'),
+    ));
+
+    // Switch default core markup to output valid HTML5.
+    add_theme_support('html5', array(
+        'search-form',
+        'comment-form',
+        'comment-list',
+        'gallery',
+        'caption',
+        'style',
+        'script',
+    ));
+
+    // Set up the WordPress core custom background feature.
+    add_theme_support('custom-background', apply_filters('${funcPrefix}_custom_background_args', array(
+        'default-color' => 'ffffff',
+        'default-image' => '',
+    )));
+
+    // Add theme support for selective refresh for widgets.
+    add_theme_support('customize-selective-refresh-widgets');
+
+    // Add support for core custom logo.
+    add_theme_support('custom-logo', array(
+        'height'      => 250,
+        'width'       => 250,
+        'flex-width'  => true,
+        'flex-height' => true,
+    ));
+
+    // Add support for responsive embeds.
+    add_theme_support('responsive-embeds');
+
+    // Add support for Block Styles.
+    add_theme_support('wp-block-styles');
+
+    // Add support for full and wide align images.
+    add_theme_support('align-wide');
+}
+add_action('after_setup_theme', '${funcPrefix}_setup');
+
+/**
+ * Set the content width in pixels.
+ */
+function ${funcPrefix}_content_width() {
+    $GLOBALS['content_width'] = apply_filters('${funcPrefix}_content_width', 1200);
+}
+add_action('after_setup_theme', '${funcPrefix}_content_width', 0);
+
+/**
+ * Register widget area.
+ */
+function ${funcPrefix}_widgets_init() {
+    register_sidebar(array(
+        'name'          => esc_html__('Sidebar', '${settings.slug}'),
+        'id'            => 'sidebar-1',
+        'description'   => esc_html__('Add widgets here.', '${settings.slug}'),
+        'before_widget' => '<section id="%1$s" class="widget %2$s">',
+        'after_widget'  => '</section>',
+        'before_title'  => '<h2 class="widget-title">',
+        'after_title'   => '</h2>',
+    ));
+
+    register_sidebar(array(
+        'name'          => esc_html__('Footer Widget Area', '${settings.slug}'),
+        'id'            => 'footer-1',
+        'description'   => esc_html__('Add footer widgets here.', '${settings.slug}'),
+        'before_widget' => '<div id="%1$s" class="widget %2$s">',
+        'after_widget'  => '</div>',
+        'before_title'  => '<h3 class="widget-title">',
+        'after_title'   => '</h3>',
+    ));
+}
+add_action('widgets_init', '${funcPrefix}_widgets_init');
+
+/**
+ * Enqueue scripts and styles.
+ */
+function ${funcPrefix}_scripts() {
+${enqueueStyles}${enqueueScripts}
+
+    if (is_singular() && comments_open() && get_option('thread_comments')) {
+        wp_enqueue_script('comment-reply');
+    }
+}
+add_action('wp_enqueue_scripts', '${funcPrefix}_scripts');
+${useDefer ? `
+/**
+ * Add defer attribute to scripts
+ */
+function ${funcPrefix}_defer_scripts($tag, $handle, $src) {
+    if (strpos($handle, '${settings.slug}-js-') !== false) {
+        return '<script src="' . esc_url($src) . '" defer></script>';
+    }
+    return $tag;
+}
+add_filter('script_loader_tag', '${funcPrefix}_defer_scripts', 10, 3);
+` : ''}
+/**
+ * Custom template tags for this theme.
+ */
+function ${funcPrefix}_posted_on() {
+    $time_string = '<time class="entry-date published updated" datetime="%1$s">%2$s</time>';
+    if (get_the_time('U') !== get_the_modified_time('U')) {
+        $time_string = '<time class="entry-date published" datetime="%1$s">%2$s</time><time class="updated" datetime="%3$s">%4$s</time>';
+    }
+
+    $time_string = sprintf(
+        $time_string,
+        esc_attr(get_the_date(DATE_W3C)),
+        esc_html(get_the_date()),
+        esc_attr(get_the_modified_date(DATE_W3C)),
+        esc_html(get_the_modified_date())
+    );
+
+    echo '<span class="posted-on">' . $time_string . '</span>';
+}
+
+function ${funcPrefix}_posted_by() {
+    echo '<span class="byline"><span class="author vcard"><a class="url fn n" href="' . esc_url(get_author_posts_url(get_the_author_meta('ID'))) . '">' . esc_html(get_the_author()) . '</a></span></span>';
+}
+`;
+        }
+
+        // ============================================
         // Preview Functions
+        // ============================================
         function showPreview() {
-            preview.classList.add('show');
-            previewTabs.innerHTML = '';
+            elements.preview.classList.add('show');
+            elements.previewTabs.innerHTML = '';
 
-            const fileNames = Object.keys(generatedFiles);
+            const fileNames = Object.keys(state.generatedFiles);
             fileNames.forEach((name, index) => {
                 const tab = document.createElement('button');
                 tab.className = 'preview-tab' + (index === 0 ? ' active' : '');
@@ -1131,62 +1813,93 @@ add_action('widgets_init', '${funcPrefix}_widgets_init');
                 tab.addEventListener('click', () => {
                     document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    previewContent.textContent = generatedFiles[name];
+                    elements.previewContent.textContent = state.generatedFiles[name];
                 });
-                previewTabs.appendChild(tab);
+                elements.previewTabs.appendChild(tab);
             });
 
-            previewContent.textContent = generatedFiles[fileNames[0]];
+            elements.previewContent.textContent = state.generatedFiles[fileNames[0]];
         }
 
+        // ============================================
         // ZIP Generation
+        // ============================================
         async function generateZip() {
-            const themeName = document.getElementById('themeName').value || 'My Theme';
-            const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
+            const settings = getThemeSettings();
             const zip = new JSZip();
-            const folder = zip.folder(themeSlug);
+            const folder = zip.folder(settings.slug);
 
             // Add generated PHP files
-            for (const [filename, content] of Object.entries(generatedFiles)) {
+            for (const [filename, content] of Object.entries(state.generatedFiles)) {
                 folder.file(filename, content);
             }
 
-            // Add assets folder with CSS, JS, images
+            // Add assets
             const assetsFolder = folder.folder('assets');
 
-            for (const [path, data] of uploadedFiles) {
-                if (data.type === 'template' || data.type === 'html') continue; // Skip template files
+            for (const [path, data] of state.uploadedFiles) {
+                if (data.type === 'template' || data.type === 'html') continue;
 
-                // Clean up the path (remove first directory if it exists)
-                const cleanPath = path.replace(/^[^/]+\//, '');
+                const normalizedPath = normalizeAssetPath(path, state.basePath);
 
                 if (data.content) {
                     if (typeof data.content === 'string') {
-                        assetsFolder.file(cleanPath, data.content);
+                        assetsFolder.file(normalizedPath, data.content);
                     } else {
-                        // ArrayBuffer for binary files
-                        assetsFolder.file(cleanPath, data.content);
+                        assetsFolder.file(normalizedPath, data.content);
                     }
                 }
             }
 
-            // Generate screenshot placeholder
-            const screenshotSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
-    <rect fill="#667eea" width="1200" height="900"/>
-    <text x="600" y="450" text-anchor="middle" fill="white" font-family="Arial" font-size="48">${themeName}</text>
-</svg>`;
-            folder.file('screenshot.svg', screenshotSvg);
+            // Generate screenshot.png
+            const screenshotBlob = await generateScreenshot(settings.name);
+            folder.file('screenshot.png', screenshotBlob);
 
-            const blob = await zip.generateAsync({ type: 'blob' });
+            // Generate ZIP
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 
             // Download
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = themeSlug + '-theme.zip';
+            link.download = settings.slug + '-theme.zip';
             link.click();
             URL.revokeObjectURL(link.href);
         }
+
+        async function generateScreenshot(themeName) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1200;
+            canvas.height = 900;
+            const ctx = canvas.getContext('2d');
+
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, 1200, 900);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1200, 900);
+
+            // Theme name text
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 64px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(themeName, 600, 400);
+
+            // Subtitle
+            ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.fillText('WordPress Theme', 600, 480);
+
+            return new Promise((resolve) => {
+                canvas.toBlob(resolve, 'image/png');
+            });
+        }
+
+        // ============================================
+        // Initialize
+        // ============================================
+        checkBrowserSupport();
     </script>
 </body>
 </html>
