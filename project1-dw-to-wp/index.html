@@ -1792,7 +1792,7 @@ ${useDefer ? `
  */
 function ${funcPrefix}_defer_scripts($tag, $handle, $src) {
     if (strpos($handle, '${settings.slug}-js-') !== false) {
-        return '<script src="' . esc_url($src) . '" defer></script>';
+        return '<script src="' . esc_url($src) . '" defer></' . 'script>';
     }
     return $tag;
 }
