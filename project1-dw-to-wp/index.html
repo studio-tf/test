@@ -883,6 +883,24 @@
                 return;
             }
 
+            // File size limit (10MB per file, 100MB total)
+            const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+            const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100MB
+
+            if (file.size > MAX_FILE_SIZE) {
+                console.warn(`ファイルが大きすぎます（10MB制限）: ${path}`);
+                return;
+            }
+
+            let totalSize = file.size;
+            for (const [, data] of state.uploadedFiles) {
+                totalSize += data.file?.size || 0;
+            }
+            if (totalSize > MAX_TOTAL_SIZE) {
+                console.warn(`合計ファイルサイズが制限を超えています（100MB制限）`);
+                return;
+            }
+
             const type = getFileType(file.name);
             const fileData = { file, type, path };
 
@@ -1089,7 +1107,6 @@
             const headMatch = content.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
             const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
             const bodyTagMatch = content.match(/<body([^>]*)>/i);
-            const doctypeMatch = content.match(/<!DOCTYPE[^>]*>/i);
 
             const headContent = headMatch ? headMatch[1] : '';
             const bodyContent = bodyMatch ? bodyMatch[1] : '';
@@ -1218,7 +1235,7 @@
 
         function processAssetPaths(content, settings) {
             const themeUri = "<?php echo esc_url(get_template_directory_uri()); ?>";
-            const assetBase = settings.preserveStructure ? '/assets' : '/assets';
+            const assetBase = settings.preserveStructure ? '' : '/assets';
 
             return content
                 // img src
@@ -1285,12 +1302,21 @@ Text Domain: ${settings.slug}
                 }
 
                 // Merge CSS files
+                const themeUri = "<?php echo esc_url(get_template_directory_uri()); ?>";
                 for (const cssFile of cssFiles) {
                     if (cssFile.content) {
                         css += `/* ========================================\n`;
                         css += `   Source: ${cssFile.normalizedPath}\n`;
                         css += `   ======================================== */\n`;
-                        css += cssFile.content + '\n\n';
+                        // Convert url() paths in CSS
+                        let cssContent = cssFile.content.replace(
+                            /url\(["']?(?!http|\/\/|data:)([^"')]+)["']?\)/gi,
+                            (match, path) => {
+                                const cleanPath = path.replace(/^\.?\/?/, '');
+                                return `url(${themeUri}/assets/${cleanPath})`;
+                            }
+                        );
+                        css += cssContent + '\n\n';
                     }
                 }
             }
